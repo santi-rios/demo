@@ -6,6 +6,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
+<meta name="author" content="Santiago Garcia-Rios">
 
 <title>Evolución de los elementos – demo</title>
 <style>
@@ -94,6 +95,12 @@ ul.task-list li input[type="checkbox"] {
 
 <div class="quarto-title-meta">
 
+    <div>
+    <div class="quarto-title-meta-heading">Author</div>
+    <div class="quarto-title-meta-contents">
+             <p>Santiago Garcia-Rios </p>
+          </div>
+  </div>
     
   
     
@@ -107,234 +114,111 @@ ul.task-list li input[type="checkbox"] {
 <section id="demostración" class="level2">
 <h2 class="anchored" data-anchor-id="demostración">Demostración</h2>
 <p>Este es un ejemplo de aplicación de R que muestra un histograma de una muestra aleatoria de una distribución normal. La línea roja representa la media de la distribución normal y la línea azul representa la media de la muestra.</p>
+</section>
+<section id="demostración-1" class="level2">
+<h2 class="anchored" data-anchor-id="demostración-1">Demostración</h2>
+<p>Este es un ejemplo de aplicación de R que muestra un histograma de una muestra aleatoria de una distribución normal. La línea roja representa la media de la distribución normal y la línea azul representa la media de la muestra.</p>
 <pre class="shinylive-r" data-engine="r"><code>#| '!! shinylive warning !!': |
 #|   shinylive does not work in self-contained HTML documents.
 #|   Please set `embed-resources: false` in your metadata.
 #| standalone: true
 #| viewerHeight: 600
-## file: ./data/simMat.RData
+# Cargar las librerías necesarias
+# Cargar las librerías necesarias
 library(shiny)
-library(shinylive)
-library(tidyverse)
-library(plotly)
-library(bslib)
-library(bsicons)
-# install.packages("bsicons")
+library(ggplot2)
+library(gapminder)
+library(leaflet)
+library(dplyr)
+library(maps)
 
-min_yr &lt;- 1800
-max_yr &lt;- 2021
+# Cargar los datos de Gapminder
+data("gapminder")
 
-getPeriodicTable &lt;- function(short = TRUE) {
-  if (short) {
-    TP &lt;- list(
-      shape = c(9, 18),
-      xy = list(
-        'H' = c(0, 0),
-        'He' = c(0, 17),
-        'Li' = c(1, 0),
-        'Be' = c(1, 1),
-        'B' = c(1, 12),
-        'C' = c(1, 13),
-        'N' = c(1, 14),
-        'O' = c(1, 15),
-        'F' = c(1, 16),
-        'Lr' = c(8, 16)
-      ),
-      names = list(
-        'H' = 'Hydrogen',
-        'He' = 'Helium',
-        'Li' = 'Lithium',
-        'Be' = 'Beryllium',
-        'B' = 'Boron',
-        'C' = 'Carbon',
-        'N' = 'Nitrogen',
-        'O' = 'Oxygen',
-        'F' = 'Fluorine',
-        'Lr' = 'Lawrencium'
-      )
-    )
-  } else {
-    TP &lt;- list(
-      shape = c(7, 32),
-      xy = list(
-        'H' = c(0, 0),
-        'He' = c(0, 31),
-        'Li' = c(1, 0),
-        'Be' = c(1, 1),
-        'B' = c(1, 26),
-        'C' = c(1, 27),
-        'N' = c(1, 28),
-        'O' = c(1, 29),
-        'F' = c(1, 30),
-        'Lr' = c(6, 16)
-      ),
-      names = list(
-        'H' = 'Hydrogen',
-        'He' = 'Helium',
-        'Li' = 'Lithium',
-        'Be' = 'Beryllium',
-        'B' = 'Boron',
-        'C' = 'Carbon',
-        'N' = 'Nitrogen',
-        'O' = 'Oxygen',
-        'F' = 'Fluorine',
-        'Lr' = 'Lawrencium'
-      )
-    )
-  }
+# Obtener las coordenadas de los países usando el paquete maps
+world_coords &lt;- map_data("world") %&gt;%
+  group_by(region) %&gt;%
+  summarise(long = mean(long), lat = mean(lat))
+
+# Renombrar la columna "region" a "country" para que coincida con gapminder
+colnames(world_coords)[1] &lt;- "country"
+
+# Combinar los datos de gapminder con las coordenadas
+gapminder &lt;- gapminder %&gt;%
+  left_join(world_coords, by = "country")
+
+# Definir la interfaz de usuario (UI)
+ui &lt;- fluidPage(
+  titlePanel("Visualización de Datos de Gapminder"),
   
-  return(TP)
-}
-
-
-processSimMat &lt;- function(simMats, elemList, min_yr = 1800, max_yr = 2021) {
-  # Symmetrize similarity matrices
-  P &lt;- simMats # Assuming simMats is already symmetric or needs symmetrization
-
-#   symmetrize &lt;- function(S) {
-#     S &lt;- replace_na(S, 0)
-#     n &lt;- nrow(S)
-#     Sum0 &lt;- rowSums(S[ , 1, drop = FALSE])
-#     Sum1 &lt;- colSums(S[ , 1, drop = FALSE])
-#     P &lt;- sqrt((S^2) / ((Sum0 %&gt;% matrix(nrow=n, ncol=n, byrow=TRUE)) * 
-#                          (Sum1 %&gt;% matrix(nrow=n, ncol=n, byrow=FALSE)) + 1e-5))
-#     diag(P) &lt;- 0
-#     P &lt;- replace_na(P, 0)
-#     return(P)
-#   }
-
-#   P_sym &lt;- apply(P, 1:3, symmetrize)
-  
-#   return(P_sym)
-    return(P)
-}
-
-# P_sym &lt;- processSimMat(simMats, elemList, min_yr = 1800, max_yr = 2021)
-
-# Visualization Function
-plotSimMat &lt;- function(P_sym, year, perm, elemList) {
-    # Reorder permutation
-    perm_order &lt;- perm
-    label &lt;- elemList[perm_order]
-    
-    # Extract similarity matrix for the year
-    S &lt;- P_sym[year - 1800 + 1, perm_order, perm_order]
-    
-    # Log scale
-    log_S &lt;- log10(S + 1e-10)
-    
-    # Create heatmap
-    fig &lt;- plot_ly(
-        x = label,
-        y = label,
-        z = log_S,
-        type = "heatmap",
-        coloraxis = 'coloraxis',
-    colorbar = list(title = "Similarity (log scale)")
-  ) %&gt;%
-    layout(
-      xaxis = list(side = "top", tickangle = -90, constrain = "domain"),
-      yaxis = list(autorange = "reversed", scaleanchor = "x" ),
-          margin = list(l = 50, r = 50, b = 100, t = 50),
-         title = paste("Matriz de Similitud para ", year),
-          coloraxis=list(colorscale='Jet'),
-            hovertemplate = paste(
-              "&lt;b&gt;%{x}&lt;/b&gt; and &lt;b&gt;%{y}&lt;/b&gt;&lt;br&gt;",
-              "Similarity: %{z:.2f}&lt;extra&gt;&lt;/extra&gt;"
-            )
-          )
+  sidebarLayout(
+    sidebarPanel(
+      # Control deslizante para seleccionar el año
+      sliderInput("year", "Selecciona el año:", 
+                  min = min(gapminder$year), 
+                  max = max(gapminder$year), 
+                  value = min(gapminder$year), 
+                  step = 1, 
+                  animate = TRUE),
       
-          return(fig)
-        }
-
-createPeriodicTable &lt;- function(TP) {
-  shape &lt;- TP$shape
-  xy &lt;- TP$xy
-  names_list &lt;- TP$names
-  
-  symbol_matrix &lt;- matrix("", nrow = shape[1], ncol = shape[2])
-  
-  for (elem in names(xy)) {
-    pos &lt;- xy[[elem]]
-    if (!is.na(pos[1])) {
-      symbol_matrix[pos[1] + 1, pos[2] + 1] &lt;- elem
-    }
-  }
-
-
-  element_matrix &lt;- matrix(names_list[symbol_matrix], nrow = shape[1], ncol = shape[2], byrow = FALSE)
-  
-  # Create heatmap
-  fig &lt;- plot_ly(
-    z = ifelse(element_matrix == "", NA, 1),
-    type = "heatmap",
-    showscale = FALSE,
-    # colors = c("black", "blue"),
-    colors = viridis::scale_color_viridis(),
-    x = 1:shape[2],
-    y = 1:shape[1],
-    hoverinfo = "text",
-    text = apply(element_matrix, 1:2, function(x) ifelse(x == "", "", paste0("&lt;b&gt;", x, "&lt;/b&gt;")))
-  ) %&gt;%
-    layout(
-      xaxis = list(showticklabels = FALSE, zeroline = FALSE),
-      yaxis = list(showticklabels = FALSE, zeroline = FALSE, scaleanchor = "x", autorange = "reversed"),
-      margin = list(l = 20, r = 20, b = 20, t = 20)
+      # Selector de país para el mapa
+      selectInput("country", "Selecciona un país:", 
+                  choices = unique(gapminder$country))
+    ),
+    
+    mainPanel(
+      # Gráfico de Expectativa de vida vs GDP
+      plotOutput("lifeExp_vs_gdp"),
+      
+      # Mapa interactivo
+      leafletOutput("map")
     )
-  
-  # Add annotations
-  for (i in 1:shape[1]) {
-    for (j in 1:shape[2]) {
-      elem &lt;- element_matrix[i, j]
-      if (elem != "") {
-        fig &lt;- fig %&gt;%
-          add_annotations(
-            x = j,
-            y = i,
-            text = paste0("&lt;b&gt;", elem, "&lt;/b&gt;"),
-            showarrow = FALSE,
-            font = list(color = "black")
-          )
-      }
-    }
-  }
-  
-  return(fig)
-}
-
-# Usage
-TP &lt;- getPeriodicTable(short = TRUE)
-
-periodic_table_fig &lt;- createPeriodicTable(TP)
-
-# Define UI for app that draws a histogram ----
-ui &lt;- page_sidebar(
-  plotlyOutput('simmat_plot'), 
-  uiOutput('year_slider')
+  )
 )
 
-server &lt;- function(input, output, session) {
-  # load("data/simMat.RData")
-  load("data/P_sym.RData")
-  # simMats &lt;-  np$load("data/simMat.npy")
-  # P_sym &lt;- processSimMat(simMats, elemList, min_yr = 1800, max_yr = 2021)
-
-  output$year_slider &lt;- renderUI({
-    sliderInput("year", "Seleccionar fecha", min = 1800, max = 2021, value = 2021, step = 1)
-})
-  output$simmat_plot &lt;- renderPlotly({
-    req(input$year)
-
-    plot &lt;- plotSimMat(P_sym, input$year, seq_along(elemList), elemList)
-
-    ggplotly(plot)
-    })
-  output$valuetext &lt;- renderText({
-    paste("Año seleccionado ", input$year)
+# Definir el servidor
+server &lt;- function(input, output) {
+  
+  # Filtrar los datos según el año seleccionado
+  filtered_data &lt;- reactive({
+    gapminder %&gt;% filter(year == input$year)
+  })
+  
+  # Gráfico de Expectativa de vida vs GDP
+  output$lifeExp_vs_gdp &lt;- renderPlot({
+    ggplot(filtered_data(), aes(x = gdpPercap, y = lifeExp, color = continent)) +
+      geom_point(alpha = 0.7) +
+      scale_x_log10() +
+      labs(title = paste("Expectativa de vida vs GDP en el año", input$year),
+           x = "GDP per cápita (log scale)",
+           y = "Expectativa de vida") +
+      theme_minimal()
+  })
+  
+  # Mapa interactivo
+  output$map &lt;- renderLeaflet({
+    # Filtrar los datos del país seleccionado
+    country_data &lt;- gapminder %&gt;% filter(country == input$country)
+    
+    # Verificar si hay coordenadas disponibles para el país seleccionado
+    if (is.na(country_data$long) || is.na(country_data$lat)) {
+      # Si no hay coordenadas, mostrar un mensaje en el mapa
+      leaflet() %&gt;%
+        addTiles() %&gt;%
+        addMarkers(lng = 0, lat = 0, popup = "Coordenadas no disponibles para este país.")
+    } else {
+      # Si hay coordenadas, mostrar el país en el mapa
+      leaflet(country_data) %&gt;%
+        addTiles() %&gt;%
+        addMarkers(lng = ~long, lat = ~lat, 
+                   popup = ~paste("País: ", country, "&lt;br&gt;",
+                                  "Expectativa de vida: ", lifeExp, "&lt;br&gt;",
+                                  "GDP per cápita: ", gdpPercap))
+    }
   })
 }
 
-# Create Shiny app ----
+# Ejecutar la aplicación Shiny
 shinyApp(ui = ui, server = server)</code></pre>
 <div class="tabset-margin-container"></div><div class="panel-tabset">
 <ul class="nav nav-tabs" role="tablist"><li class="nav-item" role="presentation"><a class="nav-link active" id="tabset-1-1-tab" data-bs-toggle="tab" data-bs-target="#tabset-1-1" role="tab" aria-controls="tabset-1-1" aria-selected="true">Similarity between the chemical elements</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-1-2-tab" data-bs-toggle="tab" data-bs-target="#tabset-1-2" role="tab" aria-controls="tabset-1-2" aria-selected="false">Optimize the sequence of element</a></li></ul>
