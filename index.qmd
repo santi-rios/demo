@@ -1,0 +1,274 @@
+---
+title: "Evolución de los elementos"
+format:
+  html:
+    grid: 
+      body-width: 1300px
+    resources: 
+      - shinylive-sw.js
+filters:
+  - shinylive
+---
+
+## Demostración
+
+Este es un ejemplo de aplicación de R que muestra un histograma de una muestra aleatoria de una distribución normal. La línea roja representa la media de la distribución normal y la línea azul representa la media de la muestra.
+
+```{shinylive-r}
+#| standalone: true
+#| viewerHeight: 600
+library(shiny)
+library(shinylive)
+library(tidyverse)
+library(reticulate)
+library(readr)
+library(plotly)
+library(bslib)
+library(bsicons)
+# install.packages("bsicons")
+np <-import("numpy")
+
+elemList <- read_lines("data/ElementList.txt")
+
+simMats <-  np$load("data/simMat.npy")
+simMats
+
+min_yr <- 1800
+max_yr <- 2021
+
+# Replace 'path_to_file.gen' with the actual path to your .gen file
+opt_permut  <- read_delim("./results/optim_permut_yearly.gen", delim = " ", col_names = FALSE)
+
+
+getPeriodicTable <- function(short = TRUE) {
+  if (short) {
+    TP <- list(
+      shape = c(9, 18),
+      xy = list(
+        'H' = c(0, 0),
+        'He' = c(0, 17),
+        'Li' = c(1, 0),
+        'Be' = c(1, 1),
+        'B' = c(1, 12),
+        'C' = c(1, 13),
+        'N' = c(1, 14),
+        'O' = c(1, 15),
+        'F' = c(1, 16),
+        'Lr' = c(8, 16)
+      ),
+      names = list(
+        'H' = 'Hydrogen',
+        'He' = 'Helium',
+        'Li' = 'Lithium',
+        'Be' = 'Beryllium',
+        'B' = 'Boron',
+        'C' = 'Carbon',
+        'N' = 'Nitrogen',
+        'O' = 'Oxygen',
+        'F' = 'Fluorine',
+        'Lr' = 'Lawrencium'
+      )
+    )
+  } else {
+    TP <- list(
+      shape = c(7, 32),
+      xy = list(
+        'H' = c(0, 0),
+        'He' = c(0, 31),
+        'Li' = c(1, 0),
+        'Be' = c(1, 1),
+        'B' = c(1, 26),
+        'C' = c(1, 27),
+        'N' = c(1, 28),
+        'O' = c(1, 29),
+        'F' = c(1, 30),
+        'Lr' = c(6, 16)
+      ),
+      names = list(
+        'H' = 'Hydrogen',
+        'He' = 'Helium',
+        'Li' = 'Lithium',
+        'Be' = 'Beryllium',
+        'B' = 'Boron',
+        'C' = 'Carbon',
+        'N' = 'Nitrogen',
+        'O' = 'Oxygen',
+        'F' = 'Fluorine',
+        'Lr' = 'Lawrencium'
+      )
+    )
+  }
+  
+  return(TP)
+}
+
+
+processSimMat <- function(simMats, elemList, min_yr = 1800, max_yr = 2021) {
+  # Symmetrize similarity matrices
+  P <- simMats # Assuming simMats is already symmetric or needs symmetrization
+
+#   symmetrize <- function(S) {
+#     S <- replace_na(S, 0)
+#     n <- nrow(S)
+#     Sum0 <- rowSums(S[ , 1, drop = FALSE])
+#     Sum1 <- colSums(S[ , 1, drop = FALSE])
+#     P <- sqrt((S^2) / ((Sum0 %>% matrix(nrow=n, ncol=n, byrow=TRUE)) * 
+#                          (Sum1 %>% matrix(nrow=n, ncol=n, byrow=FALSE)) + 1e-5))
+#     diag(P) <- 0
+#     P <- replace_na(P, 0)
+#     return(P)
+#   }
+
+#   P_sym <- apply(P, 1:3, symmetrize)
+  
+#   return(P_sym)
+    return(P)
+}
+
+P_sym <- processSimMat(simMats, elemList, min_yr = 1800, max_yr = 2021)
+
+# Visualization Function
+plotSimMat <- function(P_sym, year, perm, elemList) {
+    # Reorder permutation
+    perm_order <- perm
+    label <- elemList[perm_order]
+    
+    # Extract similarity matrix for the year
+    S <- P_sym[year - 1800 + 1, perm_order, perm_order]
+    
+    # Log scale
+    log_S <- log10(S + 1e-10)
+    
+    # Create heatmap
+    fig <- plot_ly(
+        x = label,
+        y = label,
+        z = log_S,
+        type = "heatmap",
+        coloraxis = 'coloraxis',
+    colorbar = list(title = "Similarity (log scale)")
+  ) %>%
+    layout(
+      xaxis = list(side = "top", tickangle = -90, constrain = "domain"),
+      yaxis = list(autorange = "reversed", scaleanchor = "x" ),
+          margin = list(l = 50, r = 50, b = 100, t = 50),
+         title = paste("Matriz de Similitud para ", year),
+          coloraxis=list(colorscale='Jet'),
+            hovertemplate = paste(
+              "<b>%{x}</b> and <b>%{y}</b><br>",
+              "Similarity: %{z:.2f}<extra></extra>"
+            )
+          )
+      
+          return(fig)
+        }
+
+createPeriodicTable <- function(TP) {
+  shape <- TP$shape
+  xy <- TP$xy
+  names_list <- TP$names
+  
+  symbol_matrix <- matrix("", nrow = shape[1], ncol = shape[2])
+  
+  for (elem in names(xy)) {
+    pos <- xy[[elem]]
+    if (!is.na(pos[1])) {
+      symbol_matrix[pos[1] + 1, pos[2] + 1] <- elem
+    }
+  }
+
+
+  element_matrix <- matrix(names_list[symbol_matrix], nrow = shape[1], ncol = shape[2], byrow = FALSE)
+  
+  # Create heatmap
+  fig <- plot_ly(
+    z = ifelse(element_matrix == "", NA, 1),
+    type = "heatmap",
+    showscale = FALSE,
+    # colors = c("black", "blue"),
+    colors = viridis::scale_color_viridis(),
+    x = 1:shape[2],
+    y = 1:shape[1],
+    hoverinfo = "text",
+    text = apply(element_matrix, 1:2, function(x) ifelse(x == "", "", paste0("<b>", x, "</b>")))
+  ) %>%
+    layout(
+      xaxis = list(showticklabels = FALSE, zeroline = FALSE),
+      yaxis = list(showticklabels = FALSE, zeroline = FALSE, scaleanchor = "x", autorange = "reversed"),
+      margin = list(l = 20, r = 20, b = 20, t = 20)
+    )
+  
+  # Add annotations
+  for (i in 1:shape[1]) {
+    for (j in 1:shape[2]) {
+      elem <- element_matrix[i, j]
+      if (elem != "") {
+        fig <- fig %>%
+          add_annotations(
+            x = j,
+            y = i,
+            text = paste0("<b>", elem, "</b>"),
+            showarrow = FALSE,
+            font = list(color = "black")
+          )
+      }
+    }
+  }
+  
+  return(fig)
+}
+
+# Usage
+TP <- getPeriodicTable(short = TRUE)
+
+periodic_table_fig <- createPeriodicTable(TP)
+
+# Define UI for app that draws a histogram ----
+ui <- page_sidebar(
+  plotlyOutput('simmat_plot'), 
+  uiOutput('year_slider')
+)
+
+server <- function(input, output, session) {
+  output$year_slider <- renderUI({
+    sliderInput("year", "Seleccionar fecha", min = 1800, max = 2021, value = 2021, step = 1)
+})
+  output$simmat_plot <- renderPlotly({
+    req(input$year)
+
+    plot <- plotSimMat(P_sym, input$year, seq_along(elemList), elemList)
+
+    ggplotly(plot)
+    })
+  output$valuetext <- renderText({
+    paste("Año seleccionado ", input$year)
+  })
+}
+
+# Create Shiny app ----
+shinyApp(ui = ui, server = server)
+```
+
+
+
+::: {.panel-tabset}
+## Similarity between the chemical elements
+
+> Chemical elements show resemblances to others in the compounds they form. Two elements are alike if they both form compounds with similar compositions.
+
+> This similarity matrix encodes how similar each element is to any other one.
+
+*Hover over any pixel to visualize the similarity between a pair of elements*
+
+
+## Optimize the sequence of element
+
+> Similarity information can be encoded in a sequence of elements, so that similar elements are closer together.
+
+> Using genetic algorithms, we find such optimal sequences.
+
+**Press the button to optimize the sequence.**
+
+- This will bring high values of the matrix closer to the diagonal.
+
+:::

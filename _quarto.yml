@@ -1,0 +1,8 @@
+project:
+  title: "demo"
+  type: website
+  output-dir: _site
+  resources: 
+  - shinylive-sw.js
+
+
