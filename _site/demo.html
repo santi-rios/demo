@@ -6,9 +6,8 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
-<meta name="author" content="Santiago Garcia-Rios">
 
-<title>Ejemplo de App para Visualización de Datos Interactiva – demo</title>
+<title>demo</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -38,7 +37,7 @@ ul.task-list li input[type="checkbox"] {
 <link href="site_libs/quarto-html/quarto-syntax-highlighting-549806ee2085284f45b00abea8c6df48.css" rel="stylesheet" id="quarto-text-highlighting-styles">
 <script src="site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="site_libs/bootstrap/bootstrap-2353b95ff5688ceb81ef7ddd739f3c27.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<link href="site_libs/bootstrap/bootstrap-d4be639c637f3db3c684c66cefad7e0c.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 <meta name="shinylive:serviceworker_dir" content=".">
 <script src="site_libs/quarto-contrib/shinylive-0.9.1/shinylive/load-shinylive-sw.js" type="module"></script>
 <script src="site_libs/quarto-contrib/shinylive-0.9.1/shinylive/run-python-blocks.js" type="module"></script>
@@ -88,19 +87,13 @@ ul.task-list li input[type="checkbox"] {
 
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
-<h1 class="title">Ejemplo de App para Visualización de Datos Interactiva</h1>
+<h1 class="title">demo</h1>
 </div>
 
 
 
 <div class="quarto-title-meta">
 
-    <div>
-    <div class="quarto-title-meta-heading">Author</div>
-    <div class="quarto-title-meta-contents">
-             <p>Santiago Garcia-Rios </p>
-          </div>
-  </div>
     
   
     
@@ -111,118 +104,64 @@ ul.task-list li input[type="checkbox"] {
 </header>
 
 
-<section id="demostración" class="level2">
-<h2 class="anchored" data-anchor-id="demostración">Demostración</h2>
-<p>Este es un ejemplo de una aplicación Shiny que visualiza datos de Gapminder, incluyendo un gráfico de expectativa de vida vs GDP y un mapa interactivo con información detallada de cada país.</p>
-<p>Puedes seleccionar un continente en el menú desplegable para filtrar los datos y ver la visualización correspondiente con el botón <code>Play</code>. Además, puedes hacer clic en un país en el gráfico para ver su ubicación en el mapa.</p>
-<p><em>NOTA</em>: Espera <code>~1</code> minuto para que cargue la aplicación interactiva.</p>
+<section id="quarto" class="level2">
+<h2 class="anchored" data-anchor-id="quarto">Quarto</h2>
 <pre class="shinylive-r" data-engine="r"><code>#| '!! shinylive warning !!': |
 #|   shinylive does not work in self-contained HTML documents.
 #|   Please set `embed-resources: false` in your metadata.
 #| standalone: true
 #| viewerHeight: 600
-# Cargar las librerías necesarias
-# Cargar las librerías necesarias
 library(shiny)
-library(plotly)
-library(ggplot2)
-library(gapminder)
-library(leaflet)
-library(RColorBrewer)
-library(dplyr)
-library(maps)
+library(bslib)
 
-# Cargar los datos de Gapminder
-data("gapminder")
-
-# Obtener las coordenadas de los países usando el paquete maps
-world_coords &lt;- map_data("world") %&gt;%
-  group_by(region) %&gt;%
-  summarise(long = mean(long), lat = mean(lat))
-
-# Renombrar la columna "region" a "country" para que coincida con gapminder
-colnames(world_coords)[1] &lt;- "country"
-
-# Combinar los datos de gapminder con las coordenadas
-gapminder_df &lt;- gapminder %&gt;%
-  left_join(world_coords, by = "country")
-
-# Definir la interfaz de usuario (UI)
-ui &lt;- fluidPage(
-  titlePanel("Visualización de Datos Interactiva"),
-  
-  sidebarLayout(
-    sidebarPanel(
-      # Selector de continente
-      selectInput("continent", "Selecciona el continente:", 
-                  choices = unique(gapminder_df$continent)),
-      
-      # Selector de país para el mapa (comentado)
-      # selectInput("country", "Selecciona un país para el mapa", 
-      #             choices = unique(gapminder_df$country))
-    ),
-    
-    mainPanel(
-      # Gráfico de Expectativa de vida vs GDP
-      plotlyOutput("lifeExp_vs_gdp"),
-      
-      # Mapa interactivo
-      leafletOutput("map")
-    )
-  )
+# Define UI for app that draws a histogram ----
+ui &lt;- page_sidebar(
+  sidebar = sidebar(open = "open",
+    numericInput("n", "Sample count", 100),
+    checkboxInput("pause", "Pause", FALSE),
+  ),
+  plotOutput("plot", width=1100)
 )
 
-# Definir el servidor
-server &lt;- function(input, output) {
-  
-  # Filtrar los datos según el continente seleccionado
-  filtered_data &lt;- reactive({
-    gapminder_df %&gt;% filter(continent == input$continent)
-  })
-  
-  # Gráfico de Expectativa de vida vs GDP
-  output$lifeExp_vs_gdp &lt;- renderPlotly({
-    ggp_for_plotly &lt;- ggplot(filtered_data(), aes(x = gdpPercap, y = lifeExp, color = continent)) +
-      geom_point(alpha = 0.5, aes(
-        size = pop,
-        frame = year,
-        ids = country
-      )) +
-      scale_x_log10(labels = scales::dollar_format()) +
-      geom_smooth(method = NULL, se = TRUE) +
-      labs(title = "Expectativa de vida vs GDP per cápita",
-           x = "GDP per cápita (escala logarítmica)",
-           y = "Expectativa de vida") +
-      theme_minimal()
-    
-    ggplotly(ggp_for_plotly)
-  })
-  
-  # Mapa interactivo
-  output$map &lt;- renderLeaflet({
-    # Filtrar los datos del continente seleccionado
-    country_data &lt;- gapminder_df %&gt;% filter(continent == input$continent)
-    
-    # Verificar si hay coordenadas disponibles
-    if (nrow(country_data) == 0 || all(is.na(country_data$long)) || all(is.na(country_data$lat))) {
-      # Si no hay coordenadas, mostrar un mensaje en el mapa
-      leaflet() %&gt;%
-        addTiles() %&gt;%
-        addMarkers(lng = 0, lat = 0, popup = "Coordenadas no disponibles para este continente.")
-    } else {
-      # Si hay coordenadas, mostrar el continente en el mapa
-      leaflet(country_data) %&gt;%
-        addTiles() %&gt;%
-        addMarkers(lng = ~long, lat = ~lat, 
-                   popup = ~paste("País: ", country, "&lt;br&gt;",
-                                  "Continente: ", continent, "&lt;br&gt;",
-                                  "Expectativa de vida: ", lifeExp, "&lt;br&gt;",
-                                  "GDP per cápita: ", gdpPercap))
+server &lt;- function(input, output, session) {
+  data &lt;- reactive({
+    input$resample
+    if (!isTRUE(input$pause)) {
+      invalidateLater(1000)
     }
+    rnorm(input$n)
   })
+  
+  output$plot &lt;- renderPlot({
+    hist(data(),
+      breaks = 40,
+      xlim = c(-2, 2),
+      ylim = c(0, 1),
+      lty = "blank",
+      xlab = "value",
+      freq = FALSE,
+      main = ""
+    )
+    
+    x &lt;- seq(from = -2, to = 2, length.out = 500)
+    y &lt;- dnorm(x)
+    lines(x, y, lwd=1.5)
+    
+    lwd &lt;- 5
+    abline(v=0, col="red", lwd=lwd, lty=2)
+    abline(v=mean(data()), col="blue", lwd=lwd, lty=1)
+
+    legend(legend = c("Normal", "Mean", "Sample mean"),
+      col = c("black", "red", "blue"),
+      lty = c(1, 2, 1),
+      lwd = c(1, lwd, lwd),
+      x = 1,
+      y = 0.9
+    )
+  }, res=140)
 }
 
-# Ejecutar la aplicación Shiny
+# Create Shiny app ----
 shinyApp(ui = ui, server = server)</code></pre>
 
 
