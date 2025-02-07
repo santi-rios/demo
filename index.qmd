@@ -1,5 +1,5 @@
 ---
-title: "Evolución de los elementos"
+title: "Ejemplo de App para Visualización de Datos Interactiva"
 author: "Santiago Garcia-Rios"
 format:
   html:
@@ -13,13 +13,12 @@ filters:
 
 ## Demostración
 
-Este es un ejemplo de aplicación de R que muestra un histograma de una muestra aleatoria de una distribución normal. La línea roja representa la media de la distribución normal y la línea azul representa la media de la muestra.
+Este es un ejemplo de una aplicación Shiny que visualiza datos de Gapminder, incluyendo un gráfico de expectativa de vida vs GDP y un mapa interactivo con información detallada de cada país. 
 
+Puedes seleccionar un continente en el menú desplegable para filtrar los datos y ver la visualización correspondiente con el botón `Play`. Además, puedes hacer clic en un país en el gráfico para ver su ubicación en el mapa.
 
+*NOTA*: Espera `~1` minuto para que cargue la aplicación interactiva.
 
-## Demostración
-
-Este es un ejemplo de aplicación de R que muestra un histograma de una muestra aleatoria de una distribución normal. La línea roja representa la media de la distribución normal y la línea azul representa la media de la muestra.
 
 ```{shinylive-r}
 #| standalone: true
@@ -27,9 +26,11 @@ Este es un ejemplo de aplicación de R que muestra un histograma de una muestra 
 # Cargar las librerías necesarias
 # Cargar las librerías necesarias
 library(shiny)
+library(plotly)
 library(ggplot2)
 library(gapminder)
 library(leaflet)
+library(RColorBrewer)
 library(dplyr)
 library(maps)
 
@@ -45,31 +46,27 @@ world_coords <- map_data("world") %>%
 colnames(world_coords)[1] <- "country"
 
 # Combinar los datos de gapminder con las coordenadas
-gapminder <- gapminder %>%
+gapminder_df <- gapminder %>%
   left_join(world_coords, by = "country")
 
 # Definir la interfaz de usuario (UI)
 ui <- fluidPage(
-  titlePanel("Visualización de Datos de Gapminder"),
+  titlePanel("Visualización de Datos Interactiva"),
   
   sidebarLayout(
     sidebarPanel(
-      # Control deslizante para seleccionar el año
-      sliderInput("year", "Selecciona el año:", 
-                  min = min(gapminder$year), 
-                  max = max(gapminder$year), 
-                  value = min(gapminder$year), 
-                  step = 1, 
-                  animate = TRUE),
+      # Selector de continente
+      selectInput("continent", "Selecciona el continente:", 
+                  choices = unique(gapminder_df$continent)),
       
-      # Selector de país para el mapa
-      selectInput("country", "Selecciona un país:", 
-                  choices = unique(gapminder$country))
+      # Selector de país para el mapa (comentado)
+      # selectInput("country", "Selecciona un país para el mapa", 
+      #             choices = unique(gapminder_df$country))
     ),
     
     mainPanel(
       # Gráfico de Expectativa de vida vs GDP
-      plotOutput("lifeExp_vs_gdp"),
+      plotlyOutput("lifeExp_vs_gdp"),
       
       # Mapa interactivo
       leafletOutput("map")
@@ -80,39 +77,47 @@ ui <- fluidPage(
 # Definir el servidor
 server <- function(input, output) {
   
-  # Filtrar los datos según el año seleccionado
+  # Filtrar los datos según el continente seleccionado
   filtered_data <- reactive({
-    gapminder %>% filter(year == input$year)
+    gapminder_df %>% filter(continent == input$continent)
   })
   
   # Gráfico de Expectativa de vida vs GDP
-  output$lifeExp_vs_gdp <- renderPlot({
-    ggplot(filtered_data(), aes(x = gdpPercap, y = lifeExp, color = continent)) +
-      geom_point(alpha = 0.7) +
-      scale_x_log10() +
-      labs(title = paste("Expectativa de vida vs GDP en el año", input$year),
-           x = "GDP per cápita (log scale)",
+  output$lifeExp_vs_gdp <- renderPlotly({
+    ggp_for_plotly <- ggplot(filtered_data(), aes(x = gdpPercap, y = lifeExp, color = continent)) +
+      geom_point(alpha = 0.5, aes(
+        size = pop,
+        frame = year,
+        ids = country
+      )) +
+      scale_x_log10(labels = scales::dollar_format()) +
+      geom_smooth(method = NULL, se = TRUE) +
+      labs(title = "Expectativa de vida vs GDP per cápita",
+           x = "GDP per cápita (escala logarítmica)",
            y = "Expectativa de vida") +
       theme_minimal()
+    
+    ggplotly(ggp_for_plotly)
   })
   
   # Mapa interactivo
   output$map <- renderLeaflet({
-    # Filtrar los datos del país seleccionado
-    country_data <- gapminder %>% filter(country == input$country)
+    # Filtrar los datos del continente seleccionado
+    country_data <- gapminder_df %>% filter(continent == input$continent)
     
-    # Verificar si hay coordenadas disponibles para el país seleccionado
-    if (is.na(country_data$long) || is.na(country_data$lat)) {
+    # Verificar si hay coordenadas disponibles
+    if (nrow(country_data) == 0 || all(is.na(country_data$long)) || all(is.na(country_data$lat))) {
       # Si no hay coordenadas, mostrar un mensaje en el mapa
       leaflet() %>%
         addTiles() %>%
-        addMarkers(lng = 0, lat = 0, popup = "Coordenadas no disponibles para este país.")
+        addMarkers(lng = 0, lat = 0, popup = "Coordenadas no disponibles para este continente.")
     } else {
-      # Si hay coordenadas, mostrar el país en el mapa
+      # Si hay coordenadas, mostrar el continente en el mapa
       leaflet(country_data) %>%
         addTiles() %>%
         addMarkers(lng = ~long, lat = ~lat, 
                    popup = ~paste("País: ", country, "<br>",
+                                  "Continente: ", continent, "<br>",
                                   "Expectativa de vida: ", lifeExp, "<br>",
                                   "GDP per cápita: ", gdpPercap))
     }
@@ -122,30 +127,3 @@ server <- function(input, output) {
 # Ejecutar la aplicación Shiny
 shinyApp(ui = ui, server = server)
 ```
-
-
-
-::: {.panel-tabset}
-## Similarity between the chemical elements
-
-> Chemical elements show resemblances to others in the compounds they form. Two elements are alike if they both form compounds with similar compositions.
-
-> This similarity matrix encodes how similar each element is to any other one.
-
-*Hover over any pixel to visualize the similarity between a pair of elements*
-
-
-## Optimize the sequence of element
-
-> Similarity information can be encoded in a sequence of elements, so that similar elements are closer together.
-
-> Using genetic algorithms, we find such optimal sequences.
-
-**Press the button to optimize the sequence.**
-
-- This will bring high values of the matrix closer to the diagonal.
-
-:::
-
-
-
