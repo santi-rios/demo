@@ -10,6 +10,29 @@ filters:
   - shinylive
 ---
 
+```{r setup, include=FALSE}
+# guardar y cargar objetos para salvar espacio
+# library(tidyverse)
+# library(reticulate)
+# library(readr)
+
+# np <-import("numpy")
+
+# elemList <- read_lines("data/ElementList.txt")
+
+# simMats <-  np$load("data/simMat.npy")
+# simMats
+# save(simMats, file = "data/simMat.RData", compress = TRUE)
+
+
+
+# opt_permut  <- read_delim("./results/optim_permut_yearly.gen", delim = " ", col_names = FALSE)
+
+# P_sym <- processSimMat(simMats, elemList, min_yr = 1800, max_yr = 2021)
+# save(P_sym, file = "data/P_sym.RData", compress = TRUE)
+
+```
+
 ## Demostración
 
 Este es un ejemplo de aplicación de R que muestra un histograma de una muestra aleatoria de una distribución normal. La línea roja representa la media de la distribución normal y la línea azul representa la media de la muestra.
@@ -17,28 +40,17 @@ Este es un ejemplo de aplicación de R que muestra un histograma de una muestra 
 ```{shinylive-r}
 #| standalone: true
 #| viewerHeight: 600
+## file: ./data/simMat.RData
 library(shiny)
 library(shinylive)
 library(tidyverse)
-library(reticulate)
-library(readr)
 library(plotly)
 library(bslib)
 library(bsicons)
 # install.packages("bsicons")
-np <-import("numpy")
-
-elemList <- read_lines("data/ElementList.txt")
-
-simMats <-  np$load("data/simMat.npy")
-simMats
 
 min_yr <- 1800
 max_yr <- 2021
-
-# Replace 'path_to_file.gen' with the actual path to your .gen file
-opt_permut  <- read_delim("./results/optim_permut_yearly.gen", delim = " ", col_names = FALSE)
-
 
 getPeriodicTable <- function(short = TRUE) {
   if (short) {
@@ -125,7 +137,7 @@ processSimMat <- function(simMats, elemList, min_yr = 1800, max_yr = 2021) {
     return(P)
 }
 
-P_sym <- processSimMat(simMats, elemList, min_yr = 1800, max_yr = 2021)
+# P_sym <- processSimMat(simMats, elemList, min_yr = 1800, max_yr = 2021)
 
 # Visualization Function
 plotSimMat <- function(P_sym, year, perm, elemList) {
@@ -230,6 +242,11 @@ ui <- page_sidebar(
 )
 
 server <- function(input, output, session) {
+  # load("data/simMat.RData")
+  load("data/P_sym.RData")
+  # simMats <-  np$load("data/simMat.npy")
+  # P_sym <- processSimMat(simMats, elemList, min_yr = 1800, max_yr = 2021)
+
   output$year_slider <- renderUI({
     sliderInput("year", "Seleccionar fecha", min = 1800, max = 2021, value = 2021, step = 1)
 })
